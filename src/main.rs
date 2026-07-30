@@ -1,13 +1,15 @@
 use color_eyre::Result;
 
-mod commands;
-use commands::{CliCommand, build_cli, compile::CompileCommand};
+use nitrile::commands::{CliCommand, build_cli, compile::CompileCommand};
+use nitrile::compilation::pdflatex::PdflatexEngine;
 
 fn main() -> Result<()> {
     color_eyre::install()?;
 
     // Construct the CLI
-    let commands: Vec<Box<dyn CliCommand>> = vec![Box::new(CompileCommand {})];
+    let commands: Vec<Box<dyn CliCommand>> = vec![Box::new(CompileCommand {
+        engine: Box::new(PdflatexEngine {}),
+    })];
     let (cli, index) = build_cli(&commands);
 
     // Execute the matched subcommand
