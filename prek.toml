@@ -40,7 +40,7 @@ require_serial = true
 [[repos.hooks]]
 id = "cargo-test"
 name = "cargo test"
-entry = "cargo test --all-features"
+entry = "cargo test --all-features --lib --bins"
 language = "system"
 types_or = ["rust", "toml"]
 pass_filenames = false
