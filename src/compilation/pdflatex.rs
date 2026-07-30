@@ -1,6 +1,10 @@
-use std::{ffi::OsStr, path::Path, process::Command};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
 
-use color_eyre::{Result, eyre::ensure};
+use color_eyre::{Result, eyre::ContextCompat, eyre::ensure};
 
 use crate::compilation::engine::LatexEngine;
 
@@ -34,6 +38,20 @@ fn output_directory(output: &Path) -> Option<&Path> {
     }
 }
 
+/// Resolves the path to the PDF that `pdflatex` will produce for the given arguments. Not used in
+/// the actual command; only used for displaying the path to the compiled PDF in the console.
+fn resolve_output_path(target: &Path, output: Option<&Path>) -> Result<PathBuf> {
+    let stem = output
+        .and_then(|p| p.file_stem())
+        .or_else(|| target.file_stem())
+        .context("could not determine output file name from target or output path")?;
+    let file = Path::new(stem).with_extension("pdf");
+    Ok(match output.and_then(output_directory) {
+        Some(dir) => dir.join(file),
+        None => file,
+    })
+}
+
 /// Builds the `pdflatex` command from the given arguments and options.
 fn build_command(target: &Path, output: Option<&Path>) -> Result<Command> {
     let mut command = Command::new("pdflatex");
@@ -55,13 +73,16 @@ fn build_command(target: &Path, output: Option<&Path>) -> Result<Command> {
     }
     command.arg(target);
 
+    command.stdout(Stdio::null());
+    command.stderr(Stdio::null());
+
     Ok(command)
 }
 
 pub struct PdflatexEngine;
 
 impl LatexEngine for PdflatexEngine {
-    fn compile(&self, target: &Path, output: Option<&Path>) -> Result<()> {
+    fn compile(&self, target: &Path, output: Option<&Path>) -> Result<PathBuf> {
         ensure!(target.is_file(), "target path must be a file");
         let target_ext = target.extension();
         ensure!(
@@ -73,6 +94,7 @@ impl LatexEngine for PdflatexEngine {
             }
         );
         let mut command = build_command(target, output)?;
+        let output_path = resolve_output_path(target, output)?;
 
         // pdflatex will not create the output directory itself
         if let Some(dir) = output.and_then(output_directory) {
@@ -88,7 +110,7 @@ impl LatexEngine for PdflatexEngine {
                 None => "– terminated by signal".to_string(),
             }
         );
-        Ok(())
+        Ok(output_path)
     }
 }
 
@@ -128,6 +150,33 @@ mod tests {
     fn test_output_dir_handles_top_level_file_correctly() {
         let path = Path::new("output-file.pdf");
         assert_eq!(output_directory(path), None);
+    }
+
+    #[rstest]
+    #[case(Path::new("main.tex"), None, Path::new("main.pdf"))]
+    #[case(Path::new("proj/main.tex"), None, Path::new("main.pdf"))]
+    #[case(
+        Path::new("main.tex"),
+        Some(Path::new("out.pdf")),
+        Path::new("out.pdf")
+    )]
+    #[case(
+        Path::new("main.tex"),
+        Some(Path::new("build/out.pdf")),
+        Path::new("build/out.pdf")
+    )]
+    #[case(
+        Path::new("src/main.tex"),
+        Some(Path::new("dist/report.pdf")),
+        Path::new("dist/report.pdf")
+    )]
+    fn test_resolve_output_path(
+        #[case] target: &Path,
+        #[case] output: Option<&Path>,
+        #[case] expected: &Path,
+    ) -> Result<()> {
+        assert_eq!(resolve_output_path(target, output)?, expected);
+        Ok(())
     }
 
     #[rstest]

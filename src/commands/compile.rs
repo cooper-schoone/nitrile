@@ -1,8 +1,10 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use clap::{ArgMatches, Command, arg, value_parser};
 use color_eyre::Result;
 use color_eyre::eyre::ContextCompat;
+use indicatif::ProgressBar;
 
 use crate::commands::base::CliCommand;
 use crate::compilation::engine::LatexEngine;
@@ -36,7 +38,14 @@ impl CliCommand for CompileCommand {
         };
 
         let output: Option<&PathBuf> = matches.get_one("output");
-        self.engine.compile(target, output.map(|p| p.as_path()))?;
+        let spinner = ProgressBar::new_spinner().with_message("Compiling...");
+        spinner.enable_steady_tick(Duration::from_millis(100));
+        let output_path = self.engine.compile(target, output.map(|p| p.as_path()))?;
+        spinner.finish_and_clear();
+        println!(
+            "\u{2705} Project compiled successfully to {}",
+            output_path.display()
+        );
         Ok(())
     }
 }
