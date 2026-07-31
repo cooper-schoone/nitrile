@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use clap::{ArgAction, ArgMatches, Command, arg, value_parser};
 use color_eyre::Result;
-use color_eyre::eyre::ContextCompat;
+use color_eyre::eyre::{ContextCompat, ensure};
 use indicatif::ProgressBar;
 
 use crate::commands::base::CliCommand;
@@ -19,7 +19,13 @@ impl CompileCommand {
     fn parse_args(matches: &ArgMatches) -> Result<EngineArgs<'_>> {
         let target_arg: Option<&PathBuf> = matches.get_one("target");
         let target: &Path = match target_arg {
-            Some(t) => t,
+            Some(t) => {
+                ensure!(
+                    t.extension().is_some_and(|e| e == "tex"),
+                    "target must be a .tex file",
+                );
+                t
+            }
             None => [Path::new("main.tex"), Path::new("Main.tex")]
                 .iter()
                 .find(|p| p.exists())
@@ -112,6 +118,12 @@ mod tests {
         assert_eq!(args.output, None);
         assert_eq!(args.flags, vec![]);
         Ok(())
+    }
+
+    #[test]
+    fn test_parse_args_rejects_non_tex_target() {
+        let matches = matches_from(["compile", "-t", "doc.pdf"]);
+        assert!(CompileCommand::parse_args(&matches).is_err());
     }
 
     #[test]
