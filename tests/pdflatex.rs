@@ -1,6 +1,9 @@
 use std::path::Path;
 
-use nitrile::compilation::{engine::LatexEngine, pdflatex::PdflatexEngine};
+use nitrile::compilation::{
+    engine::{EngineArgs, LatexEngine},
+    pdflatex::PdflatexEngine,
+};
 
 use color_eyre::Result;
 
@@ -12,7 +15,10 @@ fn test_pdflatex_engine_compiles_document_correctly() -> Result<()> {
     let target = Path::new("tests/test_document.tex");
     let engine = PdflatexEngine {};
 
-    let computed_output = engine.compile(target, Some(output_path.as_path()))?;
+    let computed_output = engine.compile(EngineArgs {
+        target,
+        output: Some(output_path.as_path()),
+    })?;
     assert_eq!(computed_output, output_path);
 
     let text = pdf_extract::extract_text(&computed_output)?;

@@ -6,7 +6,7 @@ use std::{
 
 use color_eyre::{Result, eyre::ContextCompat, eyre::ensure};
 
-use crate::compilation::engine::LatexEngine;
+use crate::compilation::engine::{EngineArgs, LatexEngine};
 
 /// Extracts the jobname argument from the specified output path.
 fn jobname(output: &Path) -> Result<Option<&OsStr>> {
@@ -82,9 +82,9 @@ fn build_command(target: &Path, output: Option<&Path>) -> Result<Command> {
 pub struct PdflatexEngine;
 
 impl LatexEngine for PdflatexEngine {
-    fn compile(&self, target: &Path, output: Option<&Path>) -> Result<PathBuf> {
-        ensure!(target.is_file(), "target path must be a file");
-        let target_ext = target.extension();
+    fn compile(&self, args: EngineArgs) -> Result<PathBuf> {
+        ensure!(args.target.is_file(), "target path must be a file");
+        let target_ext = args.target.extension();
         ensure!(
             target_ext == Some(OsStr::new("tex")),
             "expected target to have extension .tex, got .{}",
@@ -93,11 +93,11 @@ impl LatexEngine for PdflatexEngine {
                 None => "",
             }
         );
-        let mut command = build_command(target, output)?;
-        let output_path = resolve_output_path(target, output)?;
+        let mut command = build_command(args.target, args.output)?;
+        let output_path = resolve_output_path(args.target, args.output)?;
 
         // pdflatex will not create the output directory itself
-        if let Some(dir) = output.and_then(output_directory) {
+        if let Some(dir) = args.output.and_then(output_directory) {
             std::fs::create_dir_all(dir)?;
         }
 
