@@ -7,10 +7,27 @@ use color_eyre::eyre::ContextCompat;
 use indicatif::ProgressBar;
 
 use crate::commands::base::CliCommand;
-use crate::compilation::engine::LatexEngine;
+use crate::compilation::engine::{EngineArgs, LatexEngine};
 
 pub struct CompileCommand {
     pub engine: Box<dyn LatexEngine>,
+}
+
+impl CompileCommand {
+    /// Parse the matched arguments into the arguments required by the LaTeX engine.
+    fn parse_args(matches: &ArgMatches) -> Result<EngineArgs<'_>> {
+        let target_arg: Option<&PathBuf> = matches.get_one("target");
+        let target: &Path = match target_arg {
+            Some(t) => t,
+            None => [Path::new("main.tex"), Path::new("Main.tex")]
+                .iter()
+                .find(|p| p.exists())
+                .context("no target path was provided and no main.tex file was found")?,
+        };
+
+        let output: Option<&Path> = matches.get_one::<PathBuf>("output").map(|p| p.as_path());
+        Ok(EngineArgs { target, output })
+    }
 }
 
 impl CliCommand for CompileCommand {
@@ -28,24 +45,53 @@ impl CliCommand for CompileCommand {
     }
 
     fn run(&self, matches: &ArgMatches) -> Result<()> {
-        let target_arg: Option<&PathBuf> = matches.get_one("target");
-        let target: &Path = match target_arg {
-            Some(t) => t,
-            None => [Path::new("main.tex"), Path::new("Main.tex")]
-                .iter()
-                .find(|p| p.exists())
-                .context("no target path was provided and no main.tex file was found")?,
-        };
-
-        let output: Option<&PathBuf> = matches.get_one("output");
+        let args = Self::parse_args(matches)?;
         let spinner = ProgressBar::new_spinner().with_message("Compiling...");
         spinner.enable_steady_tick(Duration::from_millis(100));
-        let output_path = self.engine.compile(target, output.map(|p| p.as_path()))?;
+        let output_path = self.engine.compile(args)?;
         spinner.finish_and_clear();
         println!(
             "\u{2705} Project compiled successfully to {}",
             output_path.display()
         );
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct FakeEngine;
+
+    impl LatexEngine for FakeEngine {
+        fn compile(&self, _args: EngineArgs) -> Result<PathBuf> {
+            Ok(PathBuf::new())
+        }
+    }
+
+    fn matches_from<const N: usize>(args: [&str; N]) -> ArgMatches {
+        let command = CompileCommand {
+            engine: Box::new(FakeEngine),
+        };
+        command.build().get_matches_from(args)
+    }
+
+    #[test]
+    fn test_parse_args_resolves_target_and_output() -> Result<()> {
+        let matches = matches_from(["compile", "-t", "doc.tex", "-o", "out.pdf"]);
+        let args = CompileCommand::parse_args(&matches)?;
+        assert_eq!(args.target, Path::new("doc.tex"));
+        assert_eq!(args.output, Some(Path::new("out.pdf")));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_args_leaves_output_unset_when_absent() -> Result<()> {
+        let matches = matches_from(["compile", "-t", "doc.tex"]);
+        let args = CompileCommand::parse_args(&matches)?;
+        assert_eq!(args.target, Path::new("doc.tex"));
+        assert_eq!(args.output, None);
         Ok(())
     }
 }
