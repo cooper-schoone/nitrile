@@ -28,6 +28,14 @@ impl CompileCommand {
         let output: Option<&Path> = matches.get_one::<PathBuf>("output").map(|p| p.as_path());
         Ok(EngineArgs { target, output })
     }
+
+    fn get_page_count_text(output: &Path) -> Result<String> {
+        let page_count = lopdf::Document::load_metadata(output)?.page_count;
+        match page_count {
+            1 => Ok("1 page".to_string()),
+            n => Ok(format!("{n} pages")),
+        }
+    }
 }
 
 impl CliCommand for CompileCommand {
@@ -49,9 +57,11 @@ impl CliCommand for CompileCommand {
         let spinner = ProgressBar::new_spinner().with_message("Compiling...");
         spinner.enable_steady_tick(Duration::from_millis(100));
         let output_path = self.engine.compile(args)?;
+        let page_count: String =
+            Self::get_page_count_text(&output_path).unwrap_or("unknown page count".to_string());
         spinner.finish_and_clear();
         println!(
-            "\u{2705} Project compiled successfully to {}",
+            "\u{2705} Project compiled successfully to {} ({page_count})",
             output_path.display()
         );
         Ok(())
