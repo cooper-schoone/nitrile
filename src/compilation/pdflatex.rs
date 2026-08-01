@@ -40,16 +40,28 @@ fn output_directory(output: &Path) -> Option<&Path> {
     }
 }
 
+/// Escapes reserved LaTeX characters (`% \ # & _ $ { } ~ ^`) so a value is safe both to tokenize on
+/// the pdflatex command line and to typeset verbatim via `\flag`.
+fn escape_latex_reserved(input: &str) -> String {
+    input.chars().fold(String::new(), |mut s, c| {
+        match c {
+            '%' | '#' | '&' | '_' | '$' | '{' | '}' => {
+                s.push('\\');
+                s.push(c);
+            }
+            '\\' => s.push_str(r"\textbackslash{}"),
+            '~' => s.push_str(r"\textasciitilde{}"),
+            '^' => s.push_str(r"\textasciicircum{}"),
+            _ => s.push(c),
+        }
+        s
+    })
+}
+
 fn format_flag(flag: Flag) -> String {
     let (key, value): (String, String) = match flag {
-        Flag::Boolean { key: k, value: v } => (
-            k,
-            match v {
-                true => "true".to_string(),
-                false => "false".to_string(),
-            },
-        ),
-        Flag::String { key: k, value: v } => (k, v),
+        Flag::Boolean { key, value } => (key, value.to_string()),
+        Flag::String { key, value } => (key, escape_latex_reserved(&value)),
     };
     format!(
         r"\expandafter\def\csname nitrile@arg@{}\endcsname{{{}}}",
