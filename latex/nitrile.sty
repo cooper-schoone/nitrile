@@ -1,0 +1,88 @@
+%%
+%% nitrile.sty -- conditional compilation & command-line flags for LaTeX
+%%
+%% ---------------------------------------------------------------------------
+%% USAGE
+%% ---------------------------------------------------------------------------
+%%   \usepackage{nitrile}
+%%
+%%   \nitrileflag{name}{Anonymous}      % a string flag with a default
+%%   \nitrilebool{show-summary}{false}  % a boolean flag with a default
+%%
+%%   \author{\flag{name}}
+%%
+%%   \ifflag{show-summary}{%
+%%     \section{Summary}\ldots
+%%   }{}
+%%
+%% Compile normally: pdflatex main.tex -> name = Anonymous
+%% Override with nitrile: nitrile compile -f name="John Doe" \
+%%                                        -f show-summary=true
+%%
+%% ---------------------------------------------------------------------------
+%% COMMANDS
+%% ---------------------------------------------------------------------------
+%%   \nitrileflag{<name>}{<default>}    Declare a string flag.  (preamble)
+%%   \nitrilebool{<name>}{<default>}    Declare a boolean flag; <default> must
+%%                                      be literally `true' or `false'. (preamble)
+%%   \flag{<name>}                      Expand to a string flag's value.
+%%   \ifflag{<name>}{<then>}{<else>}    Branch on a boolean flag.
+%%   \ifflagset{<name>}{<then>}{<else>} True if the flag was supplied on the
+%%                                      command line (whatever its value).
+%%
+%% Flag names are arbitrary text and may contain hyphens.
+%%
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{nitrile}[2026/07/30 v0.1.0 conditional compilation and command-line flags]
+
+\RequirePackage{etoolbox}
+
+%% --- internal helpers ------------------------------------------------------
+\newcommand{\nitrile@nodecl}[1]{%
+  \PackageError{nitrile}{Flag `#1' has not been declared}{%
+    Declare it in your preamble before use, e.g.\MessageBreak
+    \protect\nitrileflag{#1}{<default>} or \protect\nitrilebool{#1}{false}.}%
+}
+
+%% --- string flags ----------------------------------------------------------
+%% \nitrileflag{<name>}{<default>}
+%% Resolves to the injected value when nitrile supplied one, else the default.
+\newcommand{\nitrileflag}[2]{%
+  \ifcsdef{nitrile@arg@#1}%
+    {\csletcs{nitrile@flag@#1}{nitrile@arg@#1}}%
+    {\csdef{nitrile@flag@#1}{#2}}%
+}
+
+%% \flag{<name>} -> the resolved value
+\newcommand{\flag}[1]{%
+  \ifcsdef{nitrile@flag@#1}%
+    {\csuse{nitrile@flag@#1}}%
+    {\nitrile@nodecl{#1}}%
+}
+
+%% --- boolean flags ---------------------------------------------------------
+%% \nitrilebool{<name>}{<default: true|false>}
+\newcommand{\nitrilebool}[2]{%
+  \providebool{nitrile@b@#1}%
+  \csdef{nitrile@bdecl@#1}{}% mark as declared so \ifflag can validate
+  \ifcsdef{nitrile@arg@#1}%
+    {\ifcsstring{nitrile@arg@#1}{true}%
+       {\setbool{nitrile@b@#1}{true}}%
+       {\setbool{nitrile@b@#1}{false}}}%
+    {\setbool{nitrile@b@#1}{#2}}%
+}
+
+%% \ifflag{<name>}{<then>}{<else>}
+\newcommand{\ifflag}[3]{%
+  \ifcsdef{nitrile@bdecl@#1}%
+    {\ifbool{nitrile@b@#1}{#2}{#3}}%
+    {\nitrile@nodecl{#1}}%
+}
+
+%% --- introspection ---------------------------------------------------------
+%% \ifflagset{<name>}{<then>}{<else>} -- was the flag passed on the CLI at all?
+\newcommand{\ifflagset}[3]{%
+  \ifcsdef{nitrile@arg@#1}{#2}{#3}%
+}
+
+\endinput
