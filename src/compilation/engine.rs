@@ -6,6 +6,7 @@ pub struct EngineArgs<'a> {
     pub target: &'a Path,
     pub output: Option<&'a Path>,
     pub flags: Vec<Flag>,
+    pub verbose: bool,
 }
 
 /// Trait for LaTeX project compilation functionality.

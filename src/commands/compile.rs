@@ -42,10 +42,13 @@ impl CompileCommand {
                     .map(|flag| parse_key_val(flag))
                     .collect::<Result<Vec<Flag>>>()
             })?;
+
+        let verbose: bool = *matches.get_one::<bool>("verbose").unwrap_or(&false);
         Ok(EngineArgs {
             target,
             output,
             flags,
+            verbose,
         })
     }
 }
@@ -64,6 +67,9 @@ impl CliCommand for CompileCommand {
             )
             .arg(
                 arg!(-f --flag <FLAG> "boolean or string flag to be passed to the compiler for conditional compilation or overrides").action(ArgAction::Append)
+            )
+            .arg(
+                arg!(-v --verbose "show latex engine output during compilation")
             )
     }
 

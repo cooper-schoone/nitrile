@@ -98,8 +98,10 @@ fn build_command(args: EngineArgs) -> Result<Command> {
     }
     command.arg(format_input_arg(args.target, args.flags));
 
-    command.stdout(Stdio::null());
-    command.stderr(Stdio::null());
+    if !args.verbose {
+        command.stdout(Stdio::null());
+        command.stderr(Stdio::null());
+    }
 
     Ok(command)
 }
@@ -235,6 +237,7 @@ mod tests {
             target,
             output,
             flags: vec![],
+            verbose: false,
         };
         let command = build_command(args)?;
         let program = command.get_program();
@@ -282,6 +285,7 @@ mod tests {
                 key: "draft".to_string(),
                 value: true,
             }],
+            verbose: false,
         };
         let command = build_command(args)?;
         let command_args: Vec<&OsStr> = command.get_args().collect();

@@ -1,5 +1,9 @@
 \documentclass{article}
 
+\usepackage{latex/nitrile}
+\nitrileflag{name}{Anonymous}
+\nitrilebool{show-conditional-content}{true}
+
 \title{Test Document}
 \date{\today}
 
@@ -8,5 +12,10 @@
 \maketitle
 
 Expected document content
+
+Name: \flag{name}
+
+\ifflag{show-conditional-content}{Conditionally rendered content}{}
+\ifflagset{name}{Name flag detected}{}
 
 \end{document}
