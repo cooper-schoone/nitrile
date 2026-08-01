@@ -11,20 +11,11 @@ use crate::{
     compilation::engine::{EngineArgs, LatexEngine},
 };
 
-/// Extracts the jobname argument from the specified output path.
+/// Extracts the jobname (file stem) from a resolved output path.
 fn jobname(output: &Path) -> Result<&OsStr> {
-    let file_stem = output
+    output
         .file_stem()
-        .context("file stemp of output path cannot be null")?;
-    let extension = output.extension();
-    // pdflatex does not require this, but without this catch the project will silently compile
-    // to a file with the wrong extension
-    ensure!(
-        extension == Some(OsStr::new("pdf")),
-        "file must have extension .pdf, got .{}",
-        extension.and_then(|e| e.to_str()).unwrap_or_default(),
-    );
-    Ok(file_stem)
+        .context("could not determine jobname from output path")
 }
 
 /// Extracts the output directory from the specified output path.
@@ -71,6 +62,16 @@ fn format_flag(flag: Flag) -> String {
 
 /// Resolves the path to the PDF that `pdflatex` will produce for the given arguments.
 fn resolve_output_path(target: &Path, output: Option<&Path>) -> Result<PathBuf> {
+    if let Some(output) = output {
+        let extension = output.extension();
+        // pdflatex does not require this, but without this catch the project will silently compile
+        // to a file with the wrong extension
+        ensure!(
+            extension == Some(OsStr::new("pdf")),
+            "file must have extension .pdf, got .{}",
+            extension.and_then(|e| e.to_str()).unwrap_or_default(),
+        );
+    }
     let stem = output
         .and_then(|p| p.file_stem())
         .or_else(|| target.file_stem())
@@ -168,12 +169,6 @@ mod tests {
     }
 
     #[test]
-    fn test_jobname_errs_on_non_pdf() {
-        let path = Path::new("dir1/dir2/output-file.txt");
-        assert!(jobname(path).is_err());
-    }
-
-    #[test]
     fn test_jobname_handles_top_level_file_correctly() -> Result<()> {
         let path = Path::new("output-file.pdf");
         assert_eq!(jobname(path)?, OsStr::new("output-file"));
@@ -217,6 +212,14 @@ mod tests {
     ) -> Result<()> {
         assert_eq!(resolve_output_path(target, output)?, expected);
         Ok(())
+    }
+
+    #[rstest]
+    #[case(Path::new("out.txt"))]
+    #[case(Path::new("build/out.txt"))]
+    #[case(Path::new("out"))]
+    fn test_resolve_output_path_errs_on_non_pdf(#[case] output: &Path) {
+        assert!(resolve_output_path(Path::new("main.tex"), Some(output)).is_err());
     }
 
     #[rstest]
@@ -330,8 +333,11 @@ mod tests {
         r"\expandafter\def\csname nitrile@arg@string-flag\endcsname{value}",
     )]
     #[case(
-        Flag::String { key: "string-flag".to_string(), value: r"\{escaped_vals\}".to_string() },
-        r"\expandafter\def\csname nitrile@arg@string-flag\endcsname{\{escaped_vals\}}",
+        Flag::String { key: "string-flag".to_string(), value: "abc[]%\\#&_${}~^def".to_string() },
+        concat!(
+            r"\expandafter\def\csname nitrile@arg@string-flag\endcsname",
+            r"{abc[]\%\textbackslash{}\#\&\_\$\{\}\textasciitilde{}\textasciicircum{}def}",
+        ),
     )]
     fn test_format_flag_formats_correctly(#[case] flag: Flag, #[case] expected: &str) {
         let formatted = format_flag(flag);
