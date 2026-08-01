@@ -32,9 +32,15 @@
 %%
 %% Flag names are arbitrary text and may contain hyphens.
 %%
+%% ---------------------------------------------------------------------------
+%% REQUIREMENTS
+%% ---------------------------------------------------------------------------
+%% Requires the etoolbox package. It is absent from minimal TeX installations
+%% (e.g. Debian/Ubuntu texlive-latex-base); install texlive-latex-recommended,
+%% or the etoolbox package via your TeX distribution's package manager.
+%%
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesPackage{nitrile}[2026/07/30 v0.1.0 conditional compilation and command-line flags]
-
 \RequirePackage{etoolbox}
 
 %% --- internal helpers ------------------------------------------------------
