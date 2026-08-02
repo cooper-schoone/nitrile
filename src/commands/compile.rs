@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use clap::{ArgAction, ArgMatches, Command, arg, value_parser};
 use color_eyre::Result;
@@ -85,13 +85,16 @@ impl CliCommand for CompileCommand {
         let args = Self::parse_args(matches)?;
         let spinner = ProgressBar::new_spinner().with_message("Compiling...");
         spinner.enable_steady_tick(Duration::from_millis(100));
+        let start = Instant::now();
         let output_path = self.engine.compile(args)?;
+        let elapsed = start.elapsed();
         let page_count: String =
             Self::get_page_count_text(&output_path).unwrap_or("unknown page count".to_string());
         spinner.finish_and_clear();
         println!(
-            "\u{2705} Project compiled successfully to {} ({page_count})",
-            output_path.display()
+            "\u{2705} Project compiled successfully to {} ({page_count}, {:.2} seconds)",
+            output_path.display(),
+            elapsed.as_secs_f32(),
         );
         Ok(())
     }
