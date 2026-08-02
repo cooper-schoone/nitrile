@@ -1,9 +1,12 @@
+use crate::commands::flags::Flag;
 use color_eyre::Result;
 use std::path::{Path, PathBuf};
 
 pub struct EngineArgs<'a> {
     pub target: &'a Path,
     pub output: Option<&'a Path>,
+    pub flags: Vec<Flag>,
+    pub verbose: bool,
 }
 
 /// Trait for LaTeX project compilation functionality.

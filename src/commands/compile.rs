@@ -1,12 +1,13 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use clap::{ArgMatches, Command, arg, value_parser};
+use clap::{ArgAction, ArgMatches, Command, arg, value_parser};
 use color_eyre::Result;
-use color_eyre::eyre::ContextCompat;
+use color_eyre::eyre::{ContextCompat, ensure};
 use indicatif::ProgressBar;
 
 use crate::commands::base::CliCommand;
+use crate::commands::flags::{Flag, parse_key_val};
 use crate::compilation::engine::{EngineArgs, LatexEngine};
 
 pub struct CompileCommand {
@@ -18,7 +19,13 @@ impl CompileCommand {
     fn parse_args(matches: &ArgMatches) -> Result<EngineArgs<'_>> {
         let target_arg: Option<&PathBuf> = matches.get_one("target");
         let target: &Path = match target_arg {
-            Some(t) => t,
+            Some(t) => {
+                ensure!(
+                    t.extension().is_some_and(|e| e == "tex"),
+                    "target must be a .tex file",
+                );
+                t
+            }
             None => [Path::new("main.tex"), Path::new("Main.tex")]
                 .iter()
                 .find(|p| p.exists())
@@ -26,7 +33,23 @@ impl CompileCommand {
         };
 
         let output: Option<&Path> = matches.get_one::<PathBuf>("output").map(|p| p.as_path());
-        Ok(EngineArgs { target, output })
+
+        let flags: Vec<Flag> = matches
+            .get_many::<String>("flag")
+            .map_or(Ok(vec![]), |flags| {
+                flags
+                    .into_iter()
+                    .map(|flag| parse_key_val(flag))
+                    .collect::<Result<Vec<Flag>>>()
+            })?;
+
+        let verbose: bool = *matches.get_one::<bool>("verbose").unwrap_or(&false);
+        Ok(EngineArgs {
+            target,
+            output,
+            flags,
+            verbose,
+        })
     }
 
     fn get_page_count_text(output: &Path) -> Result<String> {
@@ -49,6 +72,12 @@ impl CliCommand for CompileCommand {
             .arg(
                 arg!(-o --output <FILE> "filepath ending in .pdf to which the compiled PDF will be saved")
                     .value_parser(value_parser!(PathBuf)),
+            )
+            .arg(
+                arg!(-f --flag <FLAG> "boolean or string flag to be passed to the compiler for conditional compilation or overrides").action(ArgAction::Append)
+            )
+            .arg(
+                arg!(-v --verbose "show latex engine output during compilation")
             )
     }
 
@@ -93,6 +122,7 @@ mod tests {
         let args = CompileCommand::parse_args(&matches)?;
         assert_eq!(args.target, Path::new("doc.tex"));
         assert_eq!(args.output, Some(Path::new("out.pdf")));
+        assert_eq!(args.flags, vec![]);
         Ok(())
     }
 
@@ -102,6 +132,43 @@ mod tests {
         let args = CompileCommand::parse_args(&matches)?;
         assert_eq!(args.target, Path::new("doc.tex"));
         assert_eq!(args.output, None);
+        assert_eq!(args.flags, vec![]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_args_rejects_non_tex_target() {
+        let matches = matches_from(["compile", "-t", "doc.pdf"]);
+        assert!(CompileCommand::parse_args(&matches).is_err());
+    }
+
+    #[test]
+    fn test_parse_args_resolves_flags_correctly() -> Result<()> {
+        let matches = matches_from([
+            "compile",
+            "-f",
+            "name=John Doe",
+            "-f",
+            "no-show-summary",
+            "-t",
+            "doc.tex",
+        ]);
+        let args = CompileCommand::parse_args(&matches)?;
+        assert_eq!(args.target, Path::new("doc.tex"));
+        assert_eq!(args.output, None);
+        assert_eq!(
+            args.flags,
+            vec![
+                Flag::String {
+                    key: "name".to_string(),
+                    value: "John Doe".to_string()
+                },
+                Flag::Boolean {
+                    key: "show-summary".to_string(),
+                    value: false
+                },
+            ]
+        );
         Ok(())
     }
 }
