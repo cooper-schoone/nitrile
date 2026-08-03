@@ -14,21 +14,39 @@ A Rust-based CLI tool for managing LaTeX templates and projects.
 
 ## Requirements
 
-- [Rust](https://www.rust-lang.org/tools/install)
+- [Rust](https://www.rust-lang.org/tools/install), if installing from source
 - A LaTeX distribution providing `pdflatex`
 - The [`etoolbox`](https://ctan.org/pkg/etoolbox) package
   - Usually installed by default but absent from minimal TeX installations such as Debian/Ubuntu's `texlive-latex-base`; install `texlive-latex-recommended` or `etoolbox` via your TeX distribution's package manager if missing
 
 ## Installation
 
-<!-- TODO: publish to crates.io and document `cargo install nitrile` -->
+### From crates.io
 
-Build from source:
+```sh
+cargo install nitrile
+```
+
+### Prebuilt binaries
+
+```sh
+# macOS / Linux
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cooper-schoone/nitrile/releases/latest/download/nitrile-installer.sh | sh
+```
+
+```powershell
+# Windows
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/cooper-schoone/nitrile/releases/latest/download/nitrile-installer.ps1 | iex"
+```
+
+Archives also be downloaded directly from the [releases page](https://github.com/cooper-schoone/nitrile/releases).
+
+### From source
 
 ```sh
 git clone https://github.com/cooper-schoone/nitrile.git
 cd nitrile
-cargo build --release
+cargo install --path .
 ```
 
 ## Usage
