@@ -62,7 +62,7 @@ nitrile compile [-t <FILE>] [-o <FILE>] [-f <FLAG>]... [-v]
 | Option | Description |
 | --- | --- |
 | `-t`, `--target <FILE>` | Target `.tex` file to compile (defaults to `main.tex` or `Main.tex` in the current directory). |
-| `-o`, `--output <FILE>` | Path to which the compiled PDF is written (default to target, with `.pdf` extension). Must end in `.pdf`. |
+| `-o`, `--output <FILE>` | Path to which the compiled PDF is written (defaults to `build/<target>.pdf`). Must end in `.pdf`. |
 | `-f`, `--flag <FLAG>` | Flag passed to the compiler for conditional compilation or value injection. May be repeated. |
 | `-v`, `--verbose` | Show the LaTeX engine's output during compilation. |
 
