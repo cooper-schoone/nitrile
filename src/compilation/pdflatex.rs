@@ -60,24 +60,21 @@ fn format_flag(flag: Flag) -> String {
     )
 }
 
-/// Resolves the path to the PDF that `pdflatex` will produce for the given arguments.
-fn resolve_output_path(target: &Path, output: Option<&Path>) -> Result<PathBuf> {
-    if let Some(output) = output {
-        let extension = output.extension();
-        // pdflatex does not require this, but without this catch the project will silently compile
-        // to a file with the wrong extension
-        ensure!(
-            extension == Some(OsStr::new("pdf")),
-            "file must have extension .pdf, got .{}",
-            extension.and_then(|e| e.to_str()).unwrap_or_default(),
-        );
-    }
+/// Resolves the path to the PDF that `pdflatex` will produce for the given output path.
+fn resolve_output_path(output: &Path) -> Result<PathBuf> {
+    let extension = output.extension();
+    // pdflatex does not require this, but without this catch the project will silently compile
+    // to a file with the wrong extension
+    ensure!(
+        extension == Some(OsStr::new("pdf")),
+        "file must have extension .pdf, got .{}",
+        extension.and_then(|e| e.to_str()).unwrap_or_default(),
+    );
     let stem = output
-        .and_then(|p| p.file_stem())
-        .or_else(|| target.file_stem())
-        .context("could not determine output file name from target or output path")?;
+        .file_stem()
+        .context("could not determine output file name from output path")?;
     let file = Path::new(stem).with_extension("pdf");
-    Ok(match output.and_then(output_directory) {
+    Ok(match output_directory(output) {
         Some(dir) => dir.join(file),
         None => file,
     })
@@ -99,7 +96,7 @@ fn build_command(args: EngineArgs) -> Result<Command> {
     command.arg("-interaction=nonstopmode");
     command.arg("-halt-on-error");
 
-    let output_path = resolve_output_path(args.target, args.output)?;
+    let output_path = resolve_output_path(&args.output)?;
     let jobname = jobname(output_path.as_path())?;
     let output_directory = output_directory(output_path.as_path());
 
@@ -109,7 +106,7 @@ fn build_command(args: EngineArgs) -> Result<Command> {
         command.arg("-output-directory");
         command.arg(dir);
     }
-    command.arg(format_input_arg(args.target, args.flags));
+    command.arg(format_input_arg(&args.target, args.flags));
 
     if !args.verbose {
         command.stdout(Stdio::null());
@@ -133,10 +130,10 @@ impl LatexEngine for PdflatexEngine {
                 None => "",
             }
         );
-        let output_path = resolve_output_path(args.target, args.output)?;
+        let output_path = resolve_output_path(&args.output)?;
 
         // pdflatex will not create the output directory itself
-        if let Some(dir) = args.output.and_then(output_directory) {
+        if let Some(dir) = output_directory(&output_path) {
             std::fs::create_dir_all(dir)?;
         }
 
@@ -188,29 +185,11 @@ mod tests {
     }
 
     #[rstest]
-    #[case(Path::new("main.tex"), None, Path::new("main.pdf"))]
-    #[case(Path::new("proj/main.tex"), None, Path::new("main.pdf"))]
-    #[case(
-        Path::new("main.tex"),
-        Some(Path::new("out.pdf")),
-        Path::new("out.pdf")
-    )]
-    #[case(
-        Path::new("main.tex"),
-        Some(Path::new("build/out.pdf")),
-        Path::new("build/out.pdf")
-    )]
-    #[case(
-        Path::new("src/main.tex"),
-        Some(Path::new("dist/report.pdf")),
-        Path::new("dist/report.pdf")
-    )]
-    fn test_resolve_output_path(
-        #[case] target: &Path,
-        #[case] output: Option<&Path>,
-        #[case] expected: &Path,
-    ) -> Result<()> {
-        assert_eq!(resolve_output_path(target, output)?, expected);
+    #[case(Path::new("out.pdf"), Path::new("out.pdf"))]
+    #[case(Path::new("build/out.pdf"), Path::new("build/out.pdf"))]
+    #[case(Path::new("dist/report.pdf"), Path::new("dist/report.pdf"))]
+    fn test_resolve_output_path(#[case] output: &Path, #[case] expected: &Path) -> Result<()> {
+        assert_eq!(resolve_output_path(output)?, expected);
         Ok(())
     }
 
@@ -219,38 +198,38 @@ mod tests {
     #[case(Path::new("build/out.txt"))]
     #[case(Path::new("out"))]
     fn test_resolve_output_path_errs_on_non_pdf(#[case] output: &Path) {
-        assert!(resolve_output_path(Path::new("main.tex"), Some(output)).is_err());
+        assert!(resolve_output_path(output).is_err());
     }
 
     #[rstest]
     #[case(
         Path::new("main.tex"),
-        None,
+        Path::new("main.pdf"),
         &["-interaction=nonstopmode", "-halt-on-error", "-jobname", "main", r"\input{main.tex}"],
     )]
     #[case(
         Path::new("main.tex"),
-        Some(Path::new("output.pdf")),
+        Path::new("output.pdf"),
         &["-interaction=nonstopmode", "-halt-on-error", "-jobname", "output", r"\input{main.tex}"],
     )]
     #[case(
         Path::new("proj/main.tex"),
-        Some(Path::new("proj/output.pdf")),
+        Path::new("proj/output.pdf"),
         &["-interaction=nonstopmode", "-halt-on-error", "-jobname", "output", "-output-directory", "proj", r"\input{proj/main.tex}"],
     )]
     #[case(
         Path::new("nested/dir/main.tex"),
-        Some(Path::new("nested/dir/output.pdf")),
+        Path::new("nested/dir/output.pdf"),
         &["-interaction=nonstopmode", "-halt-on-error", "-jobname", "output", "-output-directory", "nested/dir", r"\input{nested/dir/main.tex}"],
     )]
     fn test_command_builds_correctly(
         #[case] target: &Path,
-        #[case] output: Option<&Path>,
+        #[case] output: &Path,
         #[case] expected_args: &[&str],
     ) -> Result<()> {
         let args = EngineArgs {
-            target,
-            output,
+            target: target.to_path_buf(),
+            output: output.to_path_buf(),
             flags: vec![],
             verbose: false,
         };
@@ -294,8 +273,8 @@ mod tests {
     #[test]
     fn test_command_includes_flags_in_input_arg() -> Result<()> {
         let args = EngineArgs {
-            target: Path::new("main.tex"),
-            output: None,
+            target: Path::new("main.tex").to_path_buf(),
+            output: Path::new("main.pdf").to_path_buf(),
             flags: vec![Flag::Boolean {
                 key: "draft".to_string(),
                 value: true,

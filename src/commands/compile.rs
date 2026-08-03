@@ -15,8 +15,15 @@ pub struct CompileCommand {
 }
 
 impl CompileCommand {
+    fn default_output(target: &Path) -> Result<PathBuf> {
+        let stem = target
+            .file_stem()
+            .context("could not determine output file name from target")?;
+        Ok(Path::new("build").join(stem).with_extension("pdf"))
+    }
+
     /// Parse the matched arguments into the arguments required by the LaTeX engine.
-    fn parse_args(matches: &ArgMatches) -> Result<EngineArgs<'_>> {
+    fn parse_args(matches: &ArgMatches) -> Result<EngineArgs> {
         let target_arg: Option<&PathBuf> = matches.get_one("target");
         let target: &Path = match target_arg {
             Some(t) => {
@@ -32,7 +39,10 @@ impl CompileCommand {
                 .context("no target path was provided and no main.tex file was found")?,
         };
 
-        let output: Option<&Path> = matches.get_one::<PathBuf>("output").map(|p| p.as_path());
+        let output: PathBuf = match matches.get_one::<PathBuf>("output") {
+            Some(p) => p.to_path_buf(),
+            None => Self::default_output(target)?,
+        };
 
         let flags: Vec<Flag> = matches
             .get_many::<String>("flag")
@@ -45,7 +55,7 @@ impl CompileCommand {
 
         let verbose: bool = *matches.get_one::<bool>("verbose").unwrap_or(&false);
         Ok(EngineArgs {
-            target,
+            target: target.to_path_buf(),
             output,
             flags,
             verbose,
@@ -70,7 +80,7 @@ impl CliCommand for CompileCommand {
                     .value_parser(value_parser!(PathBuf)),
             )
             .arg(
-                arg!(-o --output <FILE> "filepath ending in .pdf to which the compiled PDF will be saved")
+                arg!(-o --output <FILE> "filepath ending in .pdf to which the compiled PDF will be saved (defaults to build/<target>.pdf)")
                     .value_parser(value_parser!(PathBuf)),
             )
             .arg(
@@ -124,18 +134,27 @@ mod tests {
         let matches = matches_from(["compile", "-t", "doc.tex", "-o", "out.pdf"]);
         let args = CompileCommand::parse_args(&matches)?;
         assert_eq!(args.target, Path::new("doc.tex"));
-        assert_eq!(args.output, Some(Path::new("out.pdf")));
+        assert_eq!(args.output, Path::new("out.pdf"));
         assert_eq!(args.flags, vec![]);
         Ok(())
     }
 
     #[test]
-    fn test_parse_args_leaves_output_unset_when_absent() -> Result<()> {
+    fn test_parse_args_defaults_output_when_absent() -> Result<()> {
         let matches = matches_from(["compile", "-t", "doc.tex"]);
         let args = CompileCommand::parse_args(&matches)?;
         assert_eq!(args.target, Path::new("doc.tex"));
-        assert_eq!(args.output, None);
+        assert_eq!(args.output, Path::new("build/doc.pdf"));
         assert_eq!(args.flags, vec![]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_args_defaults_output_to_build_dir_ignoring_target_dir() -> Result<()> {
+        let matches = matches_from(["compile", "-t", "src/doc.tex"]);
+        let args = CompileCommand::parse_args(&matches)?;
+        assert_eq!(args.target, Path::new("src/doc.tex"));
+        assert_eq!(args.output, Path::new("build/doc.pdf"));
         Ok(())
     }
 
@@ -158,7 +177,7 @@ mod tests {
         ]);
         let args = CompileCommand::parse_args(&matches)?;
         assert_eq!(args.target, Path::new("doc.tex"));
-        assert_eq!(args.output, None);
+        assert_eq!(args.output, Path::new("build/doc.pdf"));
         assert_eq!(
             args.flags,
             vec![
