@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 use color_eyre::{
     Result,
@@ -56,6 +59,15 @@ impl From<String> for TemplateSource {
             Self::Remote(source)
         } else {
             Self::Local(PathBuf::from(source))
+        }
+    }
+}
+
+impl AsRef<OsStr> for TemplateSource {
+    fn as_ref(&self) -> &OsStr {
+        match self {
+            Self::Local(path) => path.as_ref(),
+            Self::Remote(url) => url.as_ref(),
         }
     }
 }
