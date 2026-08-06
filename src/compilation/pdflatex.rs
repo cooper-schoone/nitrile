@@ -11,7 +11,7 @@ use color_eyre::{Result, eyre::ContextCompat, eyre::ensure};
 use crate::{
     commands::flags::Flag,
     compilation::engine::{EngineArgs, LatexEngine},
-    environment,
+    sys::environment,
 };
 
 /// Extracts the jobname (file stem) from a resolved output path.

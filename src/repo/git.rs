@@ -1,6 +1,6 @@
-use crate::environment::is_on_path;
-use crate::repo::file::copy_dir_recursive;
 use crate::repo::service::{RepositoryService, TemplateSource};
+use crate::sys::environment::is_on_path;
+use crate::sys::file::copy_dir_recursive;
 use color_eyre::{Result, eyre::ensure};
 use std::fs;
 use std::path::Path;
