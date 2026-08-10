@@ -1,6 +1,8 @@
 use color_eyre::Result;
 use color_eyre::eyre::{bail, ensure};
 
+use crate::compilation::flags::Flag;
+
 /// Validates a flag to ensure that it only contains ASCII letters, digits, and hyphens.
 fn validate_key(key: &str) -> Result<()> {
     ensure!(!key.is_empty(), "flag name must not be empty");
@@ -14,13 +16,6 @@ fn validate_key(key: &str) -> Result<()> {
         );
     }
     Ok(())
-}
-
-/// Represents both string and boolean flags passed to the `compile` command.
-#[derive(Debug, PartialEq)]
-pub enum Flag {
-    String { key: String, value: String },
-    Boolean { key: String, value: bool },
 }
 
 /// Parses a key-value pair in the form "key" or "key=value" into its

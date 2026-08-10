@@ -1,11 +1,9 @@
 use std::path::Path;
 
-use nitrile::{
-    commands::flags::Flag,
-    compilation::{
-        engine::{EngineArgs, LatexEngine},
-        pdflatex::PdflatexEngine,
-    },
+use nitrile::compilation::{
+    engine::{EngineArgs, LatexEngine},
+    flags::Flag,
+    pdflatex::PdflatexEngine,
 };
 
 use color_eyre::Result;

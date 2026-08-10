@@ -6,8 +6,9 @@ use color_eyre::Result;
 use color_eyre::eyre::{ContextCompat, ensure};
 
 use crate::commands::base::CliCommand;
-use crate::commands::flags::{Flag, parse_key_val};
+use crate::commands::compile::flags::parse_key_val;
 use crate::compilation::engine::{EngineArgs, LatexEngine};
+use crate::compilation::flags::Flag;
 use crate::spinner;
 
 fn default_output(target: &Path) -> Result<PathBuf> {

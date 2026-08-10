@@ -1,4 +1,4 @@
-use crate::commands::flags::Flag;
+use crate::compilation::flags::Flag;
 use color_eyre::Result;
 use std::path::PathBuf;
 
