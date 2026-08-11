@@ -11,7 +11,7 @@ use color_eyre::{Result, eyre::ContextCompat, eyre::ensure};
 use crate::{
     compilation::engine::{EngineArgs, LatexEngine},
     compilation::flags::Flag,
-    sys::environment,
+    sys::environment::Environment,
 };
 
 /// Extracts the jobname (file stem) from a resolved output path.
@@ -151,13 +151,15 @@ fn get_compilation_fail_msg(
     msg
 }
 
-pub struct PdflatexEngine;
+pub struct PdflatexEngine<E: Environment> {
+    pub environment: E,
+}
 
-impl LatexEngine for PdflatexEngine {
+impl<E: Environment> LatexEngine for PdflatexEngine<E> {
     fn compile(&self, args: EngineArgs) -> Result<PathBuf> {
         ensure!(args.target.is_file(), "target path must be a file");
         ensure!(
-            environment::is_on_path("pdflatex"),
+            self.environment.is_on_path("pdflatex"),
             "pdflatex not found on PATH",
         );
         let target_ext = args.target.extension();

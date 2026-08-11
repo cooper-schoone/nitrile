@@ -5,6 +5,7 @@ use nitrile::compilation::{
     flags::Flag,
     pdflatex::PdflatexEngine,
 };
+use nitrile::sys::environment::SystemEnvironment;
 
 use color_eyre::Result;
 
@@ -16,7 +17,9 @@ fn test_pdflatex_engine_compiles_document_correctly_without_flags() -> Result<()
     let result: Result<()> = (|| {
         let output_path = output_dir.path().join("output.pdf");
         let target = Path::new("tests/test_document.tex").to_path_buf();
-        let engine = PdflatexEngine {};
+        let engine = PdflatexEngine {
+            environment: SystemEnvironment,
+        };
 
         let computed_output = engine.compile(EngineArgs {
             target,
@@ -46,7 +49,9 @@ fn test_pdflatex_engine_compiles_document_correctly_with_flags() -> Result<()> {
     let result: Result<()> = (|| {
         let output_path = output_dir.path().join("output.pdf");
         let target = Path::new("tests/test_document.tex").to_path_buf();
-        let engine = PdflatexEngine {};
+        let engine = PdflatexEngine {
+            environment: SystemEnvironment,
+        };
 
         let computed_output = engine.compile(EngineArgs {
             target,
