@@ -10,65 +10,62 @@ use crate::commands::base::CliCommand;
 use crate::commands::flags::{Flag, parse_key_val};
 use crate::compilation::engine::{EngineArgs, LatexEngine};
 
-pub struct CompileCommand {
-    pub engine: Box<dyn LatexEngine>,
+fn default_output(target: &Path) -> Result<PathBuf> {
+    let stem = target
+        .file_stem()
+        .context("could not determine output file name from target")?;
+    Ok(Path::new("build").join(stem).with_extension("pdf"))
 }
 
-impl CompileCommand {
-    fn default_output(target: &Path) -> Result<PathBuf> {
-        let stem = target
-            .file_stem()
-            .context("could not determine output file name from target")?;
-        Ok(Path::new("build").join(stem).with_extension("pdf"))
-    }
-
-    /// Parse the matched arguments into the arguments required by the LaTeX engine.
-    fn parse_args(matches: &ArgMatches) -> Result<EngineArgs> {
-        let target_arg: Option<&PathBuf> = matches.get_one("target");
-        let target: &Path = match target_arg {
-            Some(t) => {
-                ensure!(
-                    t.extension().is_some_and(|e| e == "tex"),
-                    "target must be a .tex file",
-                );
-                t
-            }
-            None => [Path::new("main.tex"), Path::new("Main.tex")]
-                .iter()
-                .find(|p| p.exists())
-                .context("no target path was provided and no main.tex file was found")?,
-        };
-
-        let output: PathBuf = match matches.get_one::<PathBuf>("output") {
-            Some(p) => p.to_path_buf(),
-            None => Self::default_output(target)?,
-        };
-
-        let flags: Vec<Flag> = matches
-            .get_many::<String>("flag")
-            .map_or(Ok(vec![]), |flags| {
-                flags
-                    .into_iter()
-                    .map(|flag| parse_key_val(flag))
-                    .collect::<Result<Vec<Flag>>>()
-            })?;
-
-        let verbose: bool = *matches.get_one::<bool>("verbose").unwrap_or(&false);
-        Ok(EngineArgs {
-            target: target.to_path_buf(),
-            output,
-            flags,
-            verbose,
-        })
-    }
-
-    fn get_page_count_text(output: &Path) -> Result<String> {
-        let page_count = lopdf::Document::load_metadata(output)?.page_count;
-        match page_count {
-            1 => Ok("1 page".to_string()),
-            n => Ok(format!("{n} pages")),
+fn parse_args(matches: &ArgMatches) -> Result<EngineArgs> {
+    let target_arg: Option<&PathBuf> = matches.get_one("target");
+    let target: &Path = match target_arg {
+        Some(t) => {
+            ensure!(
+                t.extension().is_some_and(|e| e == "tex"),
+                "target must be a .tex file",
+            );
+            t
         }
+        None => [Path::new("main.tex"), Path::new("Main.tex")]
+            .iter()
+            .find(|p| p.exists())
+            .context("no target path was provided and no main.tex file was found")?,
+    };
+
+    let output: PathBuf = match matches.get_one::<PathBuf>("output") {
+        Some(p) => p.to_path_buf(),
+        None => default_output(target)?,
+    };
+
+    let flags: Vec<Flag> = matches
+        .get_many::<String>("flag")
+        .map_or(Ok(vec![]), |flags| {
+            flags
+                .into_iter()
+                .map(|flag| parse_key_val(flag))
+                .collect::<Result<Vec<Flag>>>()
+        })?;
+
+    let verbose: bool = *matches.get_one::<bool>("verbose").unwrap_or(&false);
+    Ok(EngineArgs {
+        target: target.to_path_buf(),
+        output,
+        flags,
+        verbose,
+    })
+}
+
+fn get_page_count_text(output: &Path) -> Result<String> {
+    let page_count = lopdf::Document::load_metadata(output)?.page_count;
+    match page_count {
+        1 => Ok("1 page".to_string()),
+        n => Ok(format!("{n} pages")),
     }
+}
+
+pub struct CompileCommand {
+    pub engine: Box<dyn LatexEngine>,
 }
 
 impl CliCommand for CompileCommand {
@@ -92,14 +89,14 @@ impl CliCommand for CompileCommand {
     }
 
     fn run(&self, matches: &ArgMatches) -> Result<()> {
-        let args = Self::parse_args(matches)?;
+        let args = parse_args(matches)?;
         let spinner = ProgressBar::new_spinner().with_message("Compiling...");
         spinner.enable_steady_tick(Duration::from_millis(100));
         let start = Instant::now();
         let output_path = self.engine.compile(args)?;
         let elapsed = start.elapsed();
         let page_count: String =
-            Self::get_page_count_text(&output_path).unwrap_or("unknown page count".to_string());
+            get_page_count_text(&output_path).unwrap_or("unknown page count".to_string());
         spinner.finish_and_clear();
         println!(
             "\u{2705} Project compiled successfully to {} ({page_count}, {:.2} seconds)",
@@ -132,7 +129,7 @@ mod tests {
     #[test]
     fn test_parse_args_resolves_target_and_output() -> Result<()> {
         let matches = matches_from(["compile", "-t", "doc.tex", "-o", "out.pdf"]);
-        let args = CompileCommand::parse_args(&matches)?;
+        let args = parse_args(&matches)?;
         assert_eq!(args.target, Path::new("doc.tex"));
         assert_eq!(args.output, Path::new("out.pdf"));
         assert_eq!(args.flags, vec![]);
@@ -142,7 +139,7 @@ mod tests {
     #[test]
     fn test_parse_args_defaults_output_when_absent() -> Result<()> {
         let matches = matches_from(["compile", "-t", "doc.tex"]);
-        let args = CompileCommand::parse_args(&matches)?;
+        let args = parse_args(&matches)?;
         assert_eq!(args.target, Path::new("doc.tex"));
         assert_eq!(args.output, Path::new("build/doc.pdf"));
         assert_eq!(args.flags, vec![]);
@@ -152,7 +149,7 @@ mod tests {
     #[test]
     fn test_parse_args_defaults_output_to_build_dir_ignoring_target_dir() -> Result<()> {
         let matches = matches_from(["compile", "-t", "src/doc.tex"]);
-        let args = CompileCommand::parse_args(&matches)?;
+        let args = parse_args(&matches)?;
         assert_eq!(args.target, Path::new("src/doc.tex"));
         assert_eq!(args.output, Path::new("build/doc.pdf"));
         Ok(())
@@ -161,7 +158,7 @@ mod tests {
     #[test]
     fn test_parse_args_rejects_non_tex_target() {
         let matches = matches_from(["compile", "-t", "doc.pdf"]);
-        assert!(CompileCommand::parse_args(&matches).is_err());
+        assert!(parse_args(&matches).is_err());
     }
 
     #[test]
@@ -175,7 +172,7 @@ mod tests {
             "-t",
             "doc.tex",
         ]);
-        let args = CompileCommand::parse_args(&matches)?;
+        let args = parse_args(&matches)?;
         assert_eq!(args.target, Path::new("doc.tex"));
         assert_eq!(args.output, Path::new("build/doc.pdf"));
         assert_eq!(
