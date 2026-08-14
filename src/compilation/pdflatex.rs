@@ -1,7 +1,9 @@
 use std::{
     ffi::{OsStr, OsString},
+    fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    time::SystemTime,
 };
 
 use color_eyre::{Result, eyre::ContextCompat, eyre::ensure};
@@ -117,6 +119,38 @@ fn build_command(args: EngineArgs) -> Result<Command> {
     Ok(command)
 }
 
+/// Returns the message to be displayed if the project fails to compile. Describes the reason for
+/// the failure (signal termination or failure with an exit code) and whether or not a corresponding
+/// log file was found.
+///
+/// This function checks two conditions to determine if a compilation log is present:
+/// 1. Whether a log file with the same file stem as the output file exists in the same directory as
+///    the output file
+/// 2. If that log file exists, whether it was modified after the `pdflatex` command was called
+fn get_compilation_fail_msg(
+    code: Option<i32>,
+    output: &Path,
+    command_started: SystemTime,
+) -> String {
+    let mut msg = String::from("compilation failed ");
+    msg.push_str(&code.map_or_else(
+        || "– terminated by signal\n".to_string(),
+        |c| format!("with exit code {c}\n"),
+    ));
+    let log_file = output.with_extension("log");
+    let log_string: Result<String> = (|| {
+        ensure!(log_file.try_exists()?);
+        let metadata = fs::metadata(&log_file)?;
+        ensure!(metadata.modified()? >= command_started);
+        Ok(format!(
+            "see compilation log at {}",
+            log_file.to_string_lossy()
+        ))
+    })();
+    msg.push_str(&log_string.unwrap_or_else(|_| "no compilation logs found".to_string()));
+    msg
+}
+
 pub struct PdflatexEngine;
 
 impl LatexEngine for PdflatexEngine {
@@ -144,14 +178,11 @@ impl LatexEngine for PdflatexEngine {
 
         let mut command = build_command(args)?;
 
+        let start_time = SystemTime::now();
         let exit_status = command.status()?;
         ensure!(
             exit_status.success(),
-            "compilation failed {}",
-            match exit_status.code() {
-                Some(code) => format!("with exit code {code}"),
-                None => "– terminated by signal".to_string(),
-            }
+            get_compilation_fail_msg(exit_status.code(), &output_path, start_time),
         );
         Ok(output_path)
     }
