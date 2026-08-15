@@ -1,14 +1,14 @@
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use clap::{ArgAction, ArgMatches, Command, arg, value_parser};
 use color_eyre::Result;
 use color_eyre::eyre::{ContextCompat, ensure};
-use indicatif::ProgressBar;
 
 use crate::commands::base::CliCommand;
 use crate::commands::flags::{Flag, parse_key_val};
 use crate::compilation::engine::{EngineArgs, LatexEngine};
+use crate::spinner;
 
 fn default_output(target: &Path) -> Result<PathBuf> {
     let stem = target
@@ -90,14 +90,15 @@ impl CliCommand for CompileCommand {
 
     fn run(&self, matches: &ArgMatches) -> Result<()> {
         let args = parse_args(matches)?;
-        let spinner = ProgressBar::new_spinner().with_message("Compiling...");
-        spinner.enable_steady_tick(Duration::from_millis(100));
-        let start = Instant::now();
-        let output_path = self.engine.compile(args)?;
-        let elapsed = start.elapsed();
-        let page_count: String =
-            get_page_count_text(&output_path).unwrap_or("unknown page count".to_string());
-        spinner.finish_and_clear();
+        let compile_result: Result<_> = spinner!("Compiling...", {
+            let start = Instant::now();
+            let output_path = self.engine.compile(args)?;
+            let elapsed = start.elapsed();
+            let page_count: String = get_page_count_text(&output_path)
+                .unwrap_or_else(|_| "unknown page count".to_string());
+            Ok((output_path, elapsed, page_count))
+        });
+        let (output_path, elapsed, page_count) = compile_result?;
         println!(
             "\u{2705} Project compiled successfully to {} ({page_count}, {:.2} seconds)",
             output_path.display(),
