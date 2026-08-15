@@ -9,9 +9,10 @@ use std::{
 use color_eyre::{Result, eyre::ContextCompat, eyre::ensure};
 
 use crate::{
-    commands::flags::Flag,
+    attempt,
     compilation::engine::{EngineArgs, LatexEngine},
-    environment,
+    compilation::flags::Flag,
+    sys::environment::Environment,
 };
 
 /// Extracts the jobname (file stem) from a resolved output path.
@@ -138,7 +139,7 @@ fn get_compilation_fail_msg(
         |c| format!("with exit code {c}\n"),
     ));
     let log_file = output.with_extension("log");
-    let log_string: Result<String> = (|| {
+    let log_string: Result<String> = attempt!({
         ensure!(log_file.try_exists()?);
         let metadata = fs::metadata(&log_file)?;
         ensure!(metadata.modified()? >= command_started);
@@ -146,18 +147,20 @@ fn get_compilation_fail_msg(
             "see compilation log at {}",
             log_file.to_string_lossy()
         ))
-    })();
+    });
     msg.push_str(&log_string.unwrap_or_else(|_| "no compilation logs found".to_string()));
     msg
 }
 
-pub struct PdflatexEngine;
+pub struct PdflatexEngine<E: Environment> {
+    pub environment: E,
+}
 
-impl LatexEngine for PdflatexEngine {
+impl<E: Environment> LatexEngine for PdflatexEngine<E> {
     fn compile(&self, args: EngineArgs) -> Result<PathBuf> {
         ensure!(args.target.is_file(), "target path must be a file");
         ensure!(
-            environment::is_on_path("pdflatex"),
+            self.environment.is_on_path("pdflatex"),
             "pdflatex not found on PATH",
         );
         let target_ext = args.target.extension();
