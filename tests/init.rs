@@ -218,7 +218,62 @@ fn test_init_local_template_with_git_copies_and_reinitializes_git() -> Result<()
     result
 }
 
-// 3. Validate target directory behavior relative to CWD
+// 3. Validate non-empty target directory guarding
+
+#[test]
+fn test_init_nonempty_dir_without_force_fails() -> Result<()> {
+    let target = tempfile::tempdir()?;
+
+    let result: Result<()> = (|| {
+        fs::write(target.path().join("existing.tex"), "keep me")?;
+
+        ensure!(
+            run_init(&["init", "--no-git", target.path().to_str().unwrap()]).is_err(),
+            "init into a non-empty directory should fail without --force"
+        );
+        // The guard must fire before any assets are written
+        ensure!(
+            !target.path().join("main.tex").exists(),
+            "no assets should be written when the guard fails"
+        );
+        ensure!(
+            fs::read_to_string(target.path().join("existing.tex"))? == "keep me",
+            "pre-existing file should be left untouched"
+        );
+        Ok(())
+    })();
+
+    target.close()?;
+    result
+}
+
+#[test]
+fn test_init_nonempty_dir_with_force_writes_assets() -> Result<()> {
+    let target = tempfile::tempdir()?;
+
+    let result: Result<()> = (|| {
+        fs::write(target.path().join("existing.tex"), "keep me")?;
+
+        run_init(&[
+            "init",
+            "--no-git",
+            "--force",
+            target.path().to_str().unwrap(),
+        ])?;
+        ensure_default_assets(target.path())?;
+        // Non-conflicting pre-existing files should be preserved alongside the preset
+        ensure!(
+            target.path().join("existing.tex").is_file(),
+            "pre-existing file should be preserved"
+        );
+        Ok(())
+    })();
+
+    target.close()?;
+    result
+}
+
+// 4. Validate target directory behavior relative to CWD
 
 #[test_with::executable(git)]
 #[test]

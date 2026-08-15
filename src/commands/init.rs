@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use clap::{ArgMatches, Command, arg};
 use color_eyre::Result;
-use color_eyre::eyre::ensure;
+use color_eyre::eyre::{bail, ensure};
 
 use crate::commands::base::CliCommand;
 use crate::repo::git::GitService;
@@ -63,6 +63,7 @@ impl<R: RepositoryService, G: GitService, E: Environment> CliCommand for InitCom
                 })
             )
             .arg(arg!(--"no-git" "skip initializing project as a git repository"))
+            .arg(arg!(-F --force "initialize even if the target directory is not empty, overwriting conflicting files"))
     }
 
     fn run(&self, matches: &ArgMatches) -> Result<()> {
@@ -72,6 +73,7 @@ impl<R: RepositoryService, G: GitService, E: Environment> CliCommand for InitCom
             .unwrap_or_else(|| PathBuf::from("."));
         let template = matches.get_one::<TemplateSource>("template").cloned();
         let no_git = matches.get_flag("no-git");
+        let force = matches.get_flag("force");
         let git_present = self.environment.is_on_path("git");
 
         // A remote template needs git as transport even when the result won't be versioned
@@ -79,6 +81,14 @@ impl<R: RepositoryService, G: GitService, E: Environment> CliCommand for InitCom
             ensure!(
                 git_present,
                 "remote templates require git, which was not found on PATH"
+            );
+        }
+
+        // Fail fast rather than overwrite files in a directory the user is already using
+        if !force && self.environment.dir_is_nonempty(&dir)? {
+            bail!(
+                "target directory ({}) is not empty; pass --force to initialize anyway",
+                self.get_output_dir_text(&dir)?
             );
         }
 
@@ -151,6 +161,7 @@ mod tests {
 
     struct FakeEnvironment {
         git_present: bool,
+        dir_nonempty: bool,
     }
 
     impl Environment for FakeEnvironment {
@@ -161,15 +172,29 @@ mod tests {
         fn current_dir(&self) -> Result<PathBuf> {
             Ok(PathBuf::from("/home/user/project"))
         }
+
+        fn dir_is_nonempty(&self, _path: &Path) -> Result<bool> {
+            Ok(self.dir_nonempty)
+        }
     }
 
     fn command_with(
         git_present: bool,
     ) -> InitCommand<FakeRepositoryService, FakeGitService, FakeEnvironment> {
+        command_with_dir(git_present, false)
+    }
+
+    fn command_with_dir(
+        git_present: bool,
+        dir_nonempty: bool,
+    ) -> InitCommand<FakeRepositoryService, FakeGitService, FakeEnvironment> {
         InitCommand::new(
             FakeRepositoryService::default(),
             FakeGitService::default(),
-            FakeEnvironment { git_present },
+            FakeEnvironment {
+                git_present,
+                dir_nonempty,
+            },
         )
     }
 
@@ -225,6 +250,37 @@ mod tests {
         );
         assert!(command.repo_service.init_new_calls.borrow().is_empty());
         assert!(command.git_service.init_calls.borrow().is_empty());
+    }
+
+    #[test]
+    fn test_run_fails_for_nonempty_dir_without_force() {
+        let command = command_with_dir(true, true);
+        let matches = command.build().get_matches_from(["init", "proj"]);
+
+        assert!(command.run(&matches).is_err());
+        assert!(command.repo_service.init_new_calls.borrow().is_empty());
+        assert!(
+            command
+                .repo_service
+                .init_from_template_calls
+                .borrow()
+                .is_empty()
+        );
+        assert!(command.git_service.init_calls.borrow().is_empty());
+    }
+
+    #[rstest]
+    #[case(&["init", "--force", "proj"])]
+    #[case(&["init", "-F", "proj"])]
+    fn test_run_proceeds_for_nonempty_dir_with_force(#[case] args: &[&str]) -> Result<()> {
+        let command = command_with_dir(true, true);
+        let matches = command.build().get_matches_from(args.iter().copied());
+
+        command.run(&matches)?;
+
+        assert_eq!(command.repo_service.init_new_calls.borrow().len(), 1);
+        assert_eq!(command.git_service.init_calls.borrow().len(), 1);
+        Ok(())
     }
 
     #[rstest]
