@@ -39,7 +39,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cooper-schoone/nitrile/
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/cooper-schoone/nitrile/releases/latest/download/nitrile-installer.ps1 | iex"
 ```
 
-Archives also be downloaded directly from the [releases page](https://github.com/cooper-schoone/nitrile/releases).
+Archives can also be downloaded directly from the [releases page](https://github.com/cooper-schoone/nitrile/releases).
 
 ### From source
 
@@ -111,13 +111,13 @@ To use flags, add the bundled [`nitrile.sty`](assets/nitrile.sty) package to you
 Initialize a new LaTeX project.
 
 ```sh
-nitrile init [DIR] [-T <DIR>] [--no-git] [-F]
+nitrile init [DIR] [-T <SOURCE>] [--no-git] [-F]
 ```
 
 | Option | Description |
 | --- | --- |
 | `DIR` | Directory to initialize the project in (defaults to the current directory). Created if it does not exist. |
-| `-T`, `--template <DIR>` | Template project to use as a base. Accepts a local directory path or a remote Git URL (`https://…` or scp-like `user@host:path`). |
+| `-T`, `--template <SOURCE>` | Template project to use as a base. Accepts a local directory path or a remote Git URL (`https://…` or scp-like `user@host:path`). |
 | `--no-git` | Skip initializing the project as a Git repository. |
 | `-F`, `--force` | Initialize even if the target directory is not empty, overwriting any conflicting files. |
 

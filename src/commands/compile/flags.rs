@@ -19,7 +19,7 @@ fn validate_key(key: &str) -> Result<()> {
 }
 
 /// Parses a key-value pair in the form "key" or "key=value" into its
-/// corresponding flag, validating the key and escaping the value.
+/// corresponding flag and validates the key.
 pub fn parse_key_val(input: &str) -> Result<Flag> {
     if let Some((key, value)) = input.split_once('=') {
         validate_key(key)?;
