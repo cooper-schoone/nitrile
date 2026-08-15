@@ -1,6 +1,7 @@
 use crate::repo::service::{RepositoryService, TemplateSource};
 use crate::sys::file::copy_dir_recursive;
 use color_eyre::{Result, eyre::ensure};
+use std::ffi::OsStr;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -36,6 +37,28 @@ fn strip_git_dir(location: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Copy a local template's contents into `location`, skipping a top-level `.git` directory so
+/// none of the template's history is carried into the new project.
+///
+/// Subdirectories are copied via [`copy_dir_recursive`], which also skips symlinks.
+fn copy_template(source: &Path, location: &Path) -> Result<()> {
+    fs::create_dir_all(location)?;
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        if file_type.is_symlink() || entry.file_name() == OsStr::new(".git") {
+            continue;
+        }
+        let dest_path = location.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_dir_recursive(&entry.path(), &dest_path)?;
+        } else {
+            fs::copy(entry.path(), dest_path)?;
+        }
+    }
+    Ok(())
+}
+
 /// Clone a template repository from a given source into the specified directory, using Git
 /// purely as transport, and strip the resulting `.git` directory.
 fn clone_and_strip(location: &Path, template_source: &TemplateSource) -> Result<()> {
@@ -52,8 +75,8 @@ fn clone_and_strip(location: &Path, template_source: &TemplateSource) -> Result<
 /// Materializes LaTeX projects into a directory from the default preset or a template.
 ///
 /// This service does not initialize a Git repository in the directory; its only job is to
-/// initialize the project directory, clone the template project (if any), and strip `.git`, if
-/// present. Initialization as a Git repository is delegated to [`GitService`].
+/// materialize the project directory and, for a template, copy it in without any of the
+/// template's own Git history. Initialization as a Git repository is delegated to [`GitService`].
 ///
 /// [`GitService`]: crate::repo::git::GitService
 pub struct DefaultRepositoryService;
@@ -71,8 +94,7 @@ impl RepositoryService for DefaultRepositoryService {
         match &template_source {
             TemplateSource::Local(path) => {
                 ensure!(path.is_dir(), "local template path must point to directory");
-                copy_dir_recursive(path, location)?;
-                strip_git_dir(location)?;
+                copy_template(path, location)?;
             }
             TemplateSource::Remote(_) => clone_and_strip(location, &template_source)?,
         }

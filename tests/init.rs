@@ -63,6 +63,11 @@ const GIT_HISTORY_MARKER: &str = "TEMPLATE_HISTORY_MARKER";
 fn make_local_template() -> Result<TempDir> {
     let template = tempfile::tempdir()?;
     fs::write(template.path().join("template-marker.tex"), "template body")?;
+    fs::create_dir_all(template.path().join("chapters"))?;
+    fs::write(
+        template.path().join("chapters").join("intro.tex"),
+        "nested body",
+    )?;
     fs::create_dir_all(template.path().join(".git"))?;
     fs::write(
         template.path().join(".git").join("HEAD"),
@@ -162,6 +167,10 @@ fn test_init_local_template_no_git_copies_and_strips_git() -> Result<()> {
         ensure!(
             target.path().join("template-marker.tex").is_file(),
             "template contents were not copied"
+        );
+        ensure!(
+            target.path().join("chapters").join("intro.tex").is_file(),
+            "nested template contents were not copied"
         );
         // Default files should not be added to cloned template repos
         ensure!(

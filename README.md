@@ -133,6 +133,8 @@ nitrile init -T ~/Documents/Templates/project-template/ my-project
 nitrile init -T git@github.com:user/latex-template.git my-project
 ```
 
+Symlinks within a local template are not copied into the new project (this is planned for future work).
+
 Unless `--no-git` is passed, the resulting directory is initialized as a fresh Git repository. If `git` is not found on `PATH`, this step is skipped — except for remote templates, which require `git` for the cloning process.
 
 ### `reference` _(planned)_
