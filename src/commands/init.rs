@@ -57,7 +57,7 @@ impl<R: RepositoryService, G: GitService, E: Environment> CliCommand for InitCom
                 })
             )
             .arg(
-                arg!(-T --template <DIR> "template project to use as base")
+                arg!(-T --template <SOURCE> "template project to use as base")
                 .value_parser(|input: &str| -> Result<TemplateSource> {
                     Ok(TemplateSource::from(input.to_string()))
                 })
