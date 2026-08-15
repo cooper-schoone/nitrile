@@ -111,7 +111,7 @@ To use flags, add the bundled [`nitrile.sty`](assets/nitrile.sty) package to you
 Initialize a new LaTeX project.
 
 ```sh
-nitrile init [DIR] [-T <DIR>] [--no-git]
+nitrile init [DIR] [-T <DIR>] [--no-git] [-F]
 ```
 
 | Option | Description |
@@ -119,6 +119,9 @@ nitrile init [DIR] [-T <DIR>] [--no-git]
 | `DIR` | Directory to initialize the project in (defaults to the current directory). Created if it does not exist. |
 | `-T`, `--template <DIR>` | Template project to use as a base. Accepts a local directory path or a remote Git URL (`https://…` or scp-like `user@host:path`). |
 | `--no-git` | Skip initializing the project as a Git repository. |
+| `-F`, `--force` | Initialize even if the target directory is not empty, overwriting any conflicting files. |
+
+If the target directory already contains files, `init` fails fast and leaves it untouched; pass `--force` to initialize anyway (overwriting any files that collide with the preset or template, while preserving the rest).
 
 With no template, the project is populated from the default preset containing a basic `main.tex` starter document, the bundled `nitrile.sty` package, and a `.gitignore` preconfigured for LaTeX projects:
 

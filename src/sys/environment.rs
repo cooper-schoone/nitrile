@@ -1,4 +1,8 @@
-use std::{env::current_dir, path::PathBuf};
+use std::{
+    env::current_dir,
+    fs::read_dir,
+    path::{Path, PathBuf},
+};
 
 use color_eyre::Result;
 use which::which;
@@ -16,6 +20,14 @@ pub trait Environment {
     /// # Errors
     /// Returns an error if the current working directory does not exist or cannot be accessed.
     fn current_dir(&self) -> Result<PathBuf>;
+
+    /// Returns whether the given directory exists and contains at least one entry.
+    ///
+    /// A path that does not exist is treated as empty.
+    ///
+    /// # Errors
+    /// Returns an error if the path exists but its contents cannot be read.
+    fn dir_is_nonempty(&self, path: &Path) -> Result<bool>;
 }
 
 /// [`Environment`] backed by the host system.
@@ -29,5 +41,12 @@ impl Environment for SystemEnvironment {
     fn current_dir(&self) -> Result<PathBuf> {
         let dir = current_dir()?;
         Ok(dir)
+    }
+
+    fn dir_is_nonempty(&self, path: &Path) -> Result<bool> {
+        if !path.exists() {
+            return Ok(false);
+        }
+        Ok(read_dir(path)?.next().is_some())
     }
 }
