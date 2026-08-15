@@ -35,7 +35,7 @@ fn parse_args(matches: &ArgMatches) -> Result<EngineArgs> {
     };
 
     let output: PathBuf = match matches.get_one::<PathBuf>("output") {
-        Some(p) => p.to_path_buf(),
+        Some(p) => p.clone(),
         None => default_output(target)?,
     };
 

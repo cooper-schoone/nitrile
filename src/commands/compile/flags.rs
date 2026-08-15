@@ -21,25 +21,21 @@ fn validate_key(key: &str) -> Result<()> {
 /// Parses a key-value pair in the form "key" or "key=value" into its
 /// corresponding flag, validating the key and escaping the value.
 pub fn parse_key_val(input: &str) -> Result<Flag> {
-    match input.split_once('=') {
-        Some((key, value)) => {
-            validate_key(key)?;
-            Ok(Flag::String {
-                key: key.to_string(),
-                value: value.to_string(),
-            })
-        }
-        None => {
-            let (key, value) = match input.strip_prefix("no-") {
-                Some(stripped) => (stripped, false),
-                None => (input, true),
-            };
-            validate_key(key)?;
-            Ok(Flag::Boolean {
-                key: key.to_string(),
-                value,
-            })
-        }
+    if let Some((key, value)) = input.split_once('=') {
+        validate_key(key)?;
+        Ok(Flag::String {
+            key: key.to_string(),
+            value: value.to_string(),
+        })
+    } else {
+        let (key, value) = input
+            .strip_prefix("no-")
+            .map_or((input, true), |stripped| (stripped, false));
+        validate_key(key)?;
+        Ok(Flag::Boolean {
+            key: key.to_string(),
+            value,
+        })
     }
 }
 

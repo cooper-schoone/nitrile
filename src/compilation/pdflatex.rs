@@ -24,15 +24,7 @@ fn jobname(output: &Path) -> Result<&OsStr> {
 
 /// Extracts the output directory from the specified output path.
 fn output_directory(output: &Path) -> Option<&Path> {
-    if let Some(p) = output.parent() {
-        if p.as_os_str().is_empty() {
-            None
-        } else {
-            Some(p)
-        }
-    } else {
-        None
-    }
+    output.parent().filter(|&p| !p.as_os_str().is_empty())
 }
 
 /// Escapes reserved LaTeX characters (`% \ # & _ $ { } ~ ^`) so a value is safe both to tokenize on
@@ -58,10 +50,7 @@ fn format_flag(flag: Flag) -> String {
         Flag::Boolean { key, value } => (key, value.to_string()),
         Flag::String { key, value } => (key, escape_latex_reserved(&value)),
     };
-    format!(
-        r"\expandafter\def\csname nitrile@arg@{}\endcsname{{{}}}",
-        key, value,
-    )
+    format!(r"\expandafter\def\csname nitrile@arg@{key}\endcsname{{{value}}}")
 }
 
 /// Resolves the path to the PDF that `pdflatex` will produce for the given output path.
@@ -167,10 +156,7 @@ impl<E: Environment> LatexEngine for PdflatexEngine<E> {
         ensure!(
             target_ext == Some(OsStr::new("tex")),
             "expected target to have extension .tex, got .{}",
-            match target_ext {
-                Some(ext) => ext.to_str().unwrap_or_default(),
-                None => "",
-            }
+            target_ext.map_or("", |ext| ext.to_str().unwrap_or_default())
         );
         let output_path = resolve_output_path(&args.output)?;
 

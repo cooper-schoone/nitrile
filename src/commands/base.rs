@@ -10,6 +10,10 @@ pub trait CliCommand {
     fn build(&self) -> Command;
 
     /// Runs the action associated with this subcommand given the parsed CLI arguments.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the command fails to execute.
     fn run(&self, matches: &ArgMatches) -> Result<()>;
 }
 
@@ -17,6 +21,7 @@ pub trait CliCommand {
 type CommandIndex = HashMap<String, usize>;
 
 /// Constructs the main CLI command and the mapping used to access command runners.
+#[must_use]
 pub fn build_cli(commands: &[Box<dyn CliCommand>]) -> (Command, CommandIndex) {
     let base = command!()
         .propagate_version(true)
