@@ -1,6 +1,8 @@
-use color_eyre::{Result, eyre::ensure};
+use color_eyre::Result;
 use std::path::Path;
 use std::process::Command;
+
+use crate::repo::run_git_captured;
 
 /// Turns a materialized project directory into a Git repository.
 ///
@@ -22,15 +24,14 @@ pub struct CliGitService;
 
 impl GitService for CliGitService {
     fn init(&self, location: &Path) -> Result<()> {
-        let status = Command::new("git")
-            .current_dir(location)
-            .arg("init")
-            .status()?;
-        ensure!(
-            status.success(),
-            "failed to initialize git repository in {}",
-            location.to_string_lossy()
-        );
-        Ok(())
+        let mut command = Command::new("git");
+        command.current_dir(location).arg("init").arg("--quiet");
+        run_git_captured(
+            command,
+            &format!(
+                "failed to initialize git repository in {}",
+                location.to_string_lossy()
+            ),
+        )
     }
 }

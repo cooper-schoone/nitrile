@@ -1,3 +1,4 @@
+use crate::repo::run_git_captured;
 use crate::repo::service::{RepositoryService, TemplateSource};
 use crate::sys::file::copy_dir_recursive;
 use color_eyre::{Result, eyre::ensure};
@@ -16,6 +17,7 @@ fn clone_command(location: &Path, template_source: &TemplateSource) -> Command {
     command
         .current_dir(location)
         .arg("clone")
+        .arg("--quiet")
         .arg("--depth")
         .arg("1")
         .arg(template_source.as_ref())
@@ -63,12 +65,13 @@ fn copy_template(source: &Path, location: &Path) -> Result<()> {
 /// purely as transport, and strip the resulting `.git` directory.
 fn clone_and_strip(location: &Path, template_source: &TemplateSource) -> Result<()> {
     fs::create_dir_all(location)?;
-    let clone_status = clone_command(location, template_source).status()?;
-    ensure!(
-        clone_status.success(),
-        "failed to clone template repository from {}",
-        template_source.as_ref().to_string_lossy()
-    );
+    run_git_captured(
+        clone_command(location, template_source),
+        &format!(
+            "failed to clone template repository from {}",
+            template_source.as_ref().to_string_lossy()
+        ),
+    )?;
     strip_git_dir(location)
 }
 
