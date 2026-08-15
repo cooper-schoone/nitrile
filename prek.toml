@@ -46,3 +46,13 @@ types_or = ["rust", "toml"]
 pass_filenames = false
 require_serial = true
 stages = ["pre-push"]
+
+[[repos]]
+repo = "https://github.com/EmbarkStudios/cargo-deny"
+rev = "0.20.2"
+
+[[repos.hooks]]
+id = "cargo-deny"
+name = "cargo deny"
+args = ["--all-features", "check"]
+stages = ["pre-push"]
