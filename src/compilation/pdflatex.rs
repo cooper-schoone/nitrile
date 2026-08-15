@@ -9,6 +9,7 @@ use std::{
 use color_eyre::{Result, eyre::ContextCompat, eyre::ensure};
 
 use crate::{
+    attempt,
     compilation::engine::{EngineArgs, LatexEngine},
     compilation::flags::Flag,
     sys::environment::Environment,
@@ -138,7 +139,7 @@ fn get_compilation_fail_msg(
         |c| format!("with exit code {c}\n"),
     ));
     let log_file = output.with_extension("log");
-    let log_string: Result<String> = (|| {
+    let log_string: Result<String> = attempt!({
         ensure!(log_file.try_exists()?);
         let metadata = fs::metadata(&log_file)?;
         ensure!(metadata.modified()? >= command_started);
@@ -146,7 +147,7 @@ fn get_compilation_fail_msg(
             "see compilation log at {}",
             log_file.to_string_lossy()
         ))
-    })();
+    });
     msg.push_str(&log_string.unwrap_or_else(|_| "no compilation logs found".to_string()));
     msg
 }

@@ -1,17 +1,16 @@
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
 
 use clap::{ArgMatches, Command, arg};
 use color_eyre::Result;
 use color_eyre::eyre::ensure;
-use indicatif::ProgressBar;
 
 use crate::commands::base::CliCommand;
 use crate::repo::git::GitService;
 use crate::repo::service::RepositoryService;
 use crate::repo::service::TemplateSource;
+use crate::spinner;
 use crate::sys::environment::Environment;
 
 pub struct InitCommand<R: RepositoryService, G: GitService, E: Environment> {
@@ -83,19 +82,19 @@ impl<R: RepositoryService, G: GitService, E: Environment> CliCommand for InitCom
             );
         }
 
-        let spinner = ProgressBar::new_spinner().with_message("Initializing new repository...");
-        spinner.enable_steady_tick(Duration::from_millis(100));
+        let init_result: Result<()> = spinner!("Initializing new repository...", {
+            match template {
+                Some(source) => self.repo_service.init_from_template(&dir, source)?,
+                None => self.repo_service.init_new(&dir)?,
+            }
 
-        match template {
-            Some(source) => self.repo_service.init_from_template(&dir, source)?,
-            None => self.repo_service.init_new(&dir)?,
-        }
+            if !no_git && git_present {
+                self.git_service.init(&dir)?;
+            }
+            Ok(())
+        });
+        init_result?;
 
-        if !no_git && git_present {
-            self.git_service.init(&dir)?;
-        }
-
-        spinner.finish_and_clear();
         println!(
             "\u{2705} New repository initialized in {}",
             self.get_output_dir_text(&dir)?
