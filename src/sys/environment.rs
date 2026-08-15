@@ -14,7 +14,7 @@ pub trait Environment {
     /// Returns the current working directory.
     ///
     /// # Errors
-    /// Returns an error
+    /// Returns an error if the current working directory does not exist or cannot be accessed.
     fn current_dir(&self) -> Result<PathBuf>;
 }
 
