@@ -35,7 +35,9 @@ impl<R: RepositoryService, G: GitService, E: Environment> InitCommand<R, G, E> {
     /// Returns an error if the current directory could not be detected.
     fn get_output_dir_text(&self, dir: &Path) -> Result<String> {
         let current_dir = self.environment.current_dir()?;
-        if dir == current_dir {
+        // Resolve the target against the current directory so that a relative `.`
+        // (the default) and an explicit absolute cwd both compare equal to it
+        if current_dir.join(dir) == current_dir {
             Ok("current working directory".to_string())
         } else {
             Ok(dir.to_string_lossy().to_string())
@@ -158,7 +160,7 @@ mod tests {
         }
 
         fn current_dir(&self) -> Result<PathBuf> {
-            Ok(PathBuf::from_str(".")?)
+            Ok(PathBuf::from("/home/user/project"))
         }
     }
 
@@ -228,7 +230,9 @@ mod tests {
 
     #[rstest]
     #[case(Path::new("."), "current working directory")]
+    #[case(Path::new("/home/user/project"), "current working directory")]
     #[case(Path::new("./dir/"), "./dir/")]
+    #[case(Path::new("/some/other/dir"), "/some/other/dir")]
     fn test_output_dir_text_is_correct(#[case] dir: &Path, #[case] expected: &str) -> Result<()> {
         let command = command_with(true);
         assert_eq!(command.get_output_dir_text(dir)?, expected.to_string());
